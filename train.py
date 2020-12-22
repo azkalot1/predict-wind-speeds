@@ -45,10 +45,10 @@ def main(hparams: Namespace):
 
     callbacks = [LearningRateMonitor(logging_interval='epoch')]
     checkpoint_callback = ModelCheckpoint(
-        filepath=f"logs/{experiment_name}_" + "best_{val_loss:.3f}",
+        filepath=f"logs/{experiment_name}/{experiment_name}_" + "best_{val_loss:.3f}",
         monitor='val_loss', save_top_k=5, mode='min', save_last=True)
     early_stop_callback = EarlyStopping(
-        monitor='val_loss', patience=15, mode='min', verbose=True)
+        monitor='val_loss', patience=5, mode='min', verbose=True)
 
     # a weird way to add arguments to Trainer constructor, but we'll take it
     hparams.__dict__['logger'] = pl_logger
@@ -74,6 +74,7 @@ if __name__ == "__main__":
     parser.add_argument("--experiment_name", default=None)
     parser.add_argument("--load_weights", default=None, type=str)
     parser.add_argument("--training_transforms", default="light")
+    parser.add_argument("--resize", default=256, type=int)
     parser.add_argument("--use_mixup", default=False, type=str2bool)
     parser.add_argument("--mixup_alpha", default=1.0, type=float)
     parser.add_argument("--profiler", default=False, type=str2bool)
@@ -102,8 +103,8 @@ if __name__ == "__main__":
     parser.add_argument("--sgd_momentum", default=0.9, type=float)
     parser.add_argument("--sgd_wd", default=1e-4, type=float)
     parser.add_argument("--learning_rate", default=3e-4, type=float)
-    parser.add_argument("--weight_decay", default=0, type=float)
-    parser.add_argument("--gradient_clip_val", default=10, type=float)
+    parser.add_argument("--weight_decay", default=1e-3, type=float)
+    parser.add_argument("--gradient_clip_val", default=5, type=float)
     parser.add_argument("--tzero", default=10, type=float)
     parser.add_argument("--tmult", default=1, type=float)
 

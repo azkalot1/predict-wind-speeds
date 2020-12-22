@@ -7,9 +7,9 @@ from warmup_scheduler import GradualWarmupScheduler
 from torch.utils.data import DataLoader
 from sklearn.metrics import mean_squared_error
 import numpy as np
-from .models import SimpleClassificationModel
-from .dataset import WindDataset
-from .transforms import get_training_trasnforms
+from models import SimpleClassificationModel
+from dataset import WindDataset
+from transforms import get_training_trasnforms, mixup_data, mixup_criterion
 import pandas as pd
 from os.path import join as join_path
 import matplotlib.pyplot as plt
@@ -85,8 +85,10 @@ class WindModel(pl.LightningModule):
             [x["targets"] for x in outputs])
         rmse = mean_squared_error(targets, predictions, squared=False)
 
-        self.logger.experiment.log_metric('train/epoch_loss', avg_loss)
-        self.logger.experiment.log_metric('train/epoch_rmse', rmse)
+        # self.logger.experiment.log_metric('train_loss', avg_loss)
+        # self.logger.experiment.log_metric('train_rmse', rmse)
+        self.log('train_loss', avg_loss)
+        self.log('train_rmse', rmse)
 
     def validation_epoch_end(self, outputs: torch.tensor) -> dict:
         avg_loss = torch.stack(
@@ -117,8 +119,10 @@ class WindModel(pl.LightningModule):
                 description='Most incorrect images'
         )
         plt.close()
-        self.logger.experiment.log_metric('val/epoch_loss', avg_loss)
-        self.logger.experiment.log_metric('val/epoch_rmse', rmse)
+        # self.logger.experiment.log_metric('val_loss', avg_loss)
+        # self.logger.experiment.log_metric('val_rmse', rmse)
+        self.log('val_loss', avg_loss)
+        self.log('val_rmse', rmse)
 
     def configure_optimizers(self):
         optimizer = self.get_optimizer()
@@ -135,7 +139,7 @@ class WindModel(pl.LightningModule):
         train_dataset = WindDataset(
                     images=images,
                     wind_speed=wind_speed,
-                    transform=get_training_trasnforms(self.hparams.training_transforms),
+                    transform=get_training_trasnforms(self.hparams.training_transforms, self.hparams.resize),
 
             )
         return DataLoader(
@@ -143,7 +147,7 @@ class WindModel(pl.LightningModule):
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.hparams.num_workers,
-            pin_memory=True, 
+            pin_memory=True,
             drop_last=True
         )
 
@@ -155,7 +159,7 @@ class WindModel(pl.LightningModule):
         val_dataset = WindDataset(
                     images=images,
                     wind_speed=wind_speed,
-                    transform=get_training_trasnforms('valid'),
+                    transform=get_training_trasnforms('valid', self.hparams.resize),
 
             )
         return DataLoader(
