@@ -134,11 +134,13 @@ class WindModel(pl.LightningModule):
         # train_df = pd.read_csv(self.hparams.training_data_path)
         train_df = pd.read_csv(join_path(self.hparams.data_folder, f'fold{self.hparams.fold}_train.csv'))
         images = train_df['image_id'].values
-        images = [join_path(self.hparams.image_folder, x+'.jpg') for x in images]
+        images = [x+'.jpg' for x in images]
         wind_speed = train_df['wind_speed'].values
         train_dataset = WindDataset(
                     images=images,
+                    folder=self.hparams.data_folder,
                     wind_speed=wind_speed,
+                    load_n=self.hparams.load_n,
                     transform=get_training_trasnforms(self.hparams.training_transforms, self.hparams.resize),
 
             )
@@ -154,11 +156,13 @@ class WindModel(pl.LightningModule):
     def val_dataloader(self) -> torch.utils.data.DataLoader:
         val_df = pd.read_csv(join_path(self.hparams.data_folder, f'fold{self.hparams.fold}_val.csv'))
         images = val_df['image_id'].values
-        images = [join_path(self.hparams.image_folder, x+'.jpg') for x in images]
+        images = [x+'.jpg' for x in images]
         wind_speed = val_df['wind_speed'].values
         val_dataset = WindDataset(
                     images=images,
+                    folder=self.hparams.data_folder,
                     wind_speed=wind_speed,
+                    load_n=self.hparams.load_n,
                     transform=get_training_trasnforms('valid', self.hparams.resize),
 
             )

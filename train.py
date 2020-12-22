@@ -68,8 +68,9 @@ if __name__ == "__main__":
     # TODO: move configuration to *.yaml with Hydra
     parser = ArgumentParser(add_help=False)
 
-    parser.add_argument("--image_folder", default='./data/train/')
+    parser.add_argument("--image_folder", default='./data/all_images/')
     parser.add_argument("--data_folder", default='./data/')
+    parser.add_argument("--load_n", default=1, type=int)
     parser.add_argument("--fold", default=0, type=int)
     parser.add_argument("--experiment_name", default=None)
     parser.add_argument("--load_weights", default=None, type=str)
