@@ -2,14 +2,14 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 from torch.optim.lr_scheduler import (
-    ReduceLROnPlateau, CosineAnnealingLR, CosineAnnealingWarmRestarts)
+    CyclicLR, CosineAnnealingLR, CosineAnnealingWarmRestarts, StepLR)
 from warmup_scheduler import GradualWarmupScheduler
 from torch.utils.data import DataLoader
 from sklearn.metrics import mean_squared_error
 import numpy as np
-from models import SimpleClassificationModel
-from dataset import WindDataset
-from transforms import get_training_trasnforms, mixup_data, mixup_criterion
+from .models import SimpleClassificationModel
+from .dataset import WindDataset
+from .transforms import get_training_trasnforms, mixup_data, mixup_criterion
 import pandas as pd
 from os.path import join as join_path
 import matplotlib.pyplot as plt
@@ -64,7 +64,7 @@ class WindModel(pl.LightningModule):
 
         # log each most wrong image in a batch
         # save images
-        img = np.squeeze(batch['features'].cpu().detach().numpy())
+        img = batch['features'].cpu().detach().numpy()
         img = (img * 255).astype(int)
         val_step = {
             "loss": loss,
@@ -108,7 +108,7 @@ class WindModel(pl.LightningModule):
         fig, ax = plt.subplots(4, 4, figsize=(16, 16))
         ax = ax.flatten()
         for ax_idx in range(min(len(ax), self.batch_size)):
-            ax[ax_idx].imshow(img[most_wrong[ax_idx]], cmap='Greys_r')
+            ax[ax_idx].imshow(img[most_wrong[ax_idx], -1], cmap='Greys_r')
             ax[ax_idx].axis('off')
             ax[ax_idx].set_title(f'predicted: {predictions[most_wrong[ax_idx]]}, gt: {targets[most_wrong[ax_idx]]}')
         plt.tight_layout()
@@ -138,7 +138,7 @@ class WindModel(pl.LightningModule):
         wind_speed = train_df['wind_speed'].values
         train_dataset = WindDataset(
                     images=images,
-                    folder=self.hparams.data_folder,
+                    folder=self.hparams.image_folder,
                     wind_speed=wind_speed,
                     load_n=self.hparams.load_n,
                     transform=get_training_trasnforms(self.hparams.training_transforms, self.hparams.resize),
@@ -160,7 +160,7 @@ class WindModel(pl.LightningModule):
         wind_speed = val_df['wind_speed'].values
         val_dataset = WindDataset(
                     images=images,
-                    folder=self.hparams.data_folder,
+                    folder=self.hparams.image_folder,
                     wind_speed=wind_speed,
                     load_n=self.hparams.load_n,
                     transform=get_training_trasnforms('valid', self.hparams.resize),
@@ -175,8 +175,8 @@ class WindModel(pl.LightningModule):
         )
 
     @staticmethod
-    def net_mapping(model_name: str, pretrained: bool = True) -> torch.nn.Module:
-        return SimpleClassificationModel(model_name, pretrained=pretrained)
+    def net_mapping(model_name: str, n_input_channels: int, pretrained: bool = True) -> torch.nn.Module:
+        return SimpleClassificationModel(model_name, n_input_channels, pretrained=pretrained)
 
     def get_optimizer(self) -> object:
         if "adam" == self.hparams.optimizer:
@@ -200,24 +200,16 @@ class WindModel(pl.LightningModule):
             raise NotImplementedError("Not a valid optimizer configuration.")
 
     def get_scheduler(self, optimizer) -> object:
-        if "plateau" == self.hparams.scheduler:
-            return ReduceLROnPlateau(
-                optimizer,
-                factor=self.hparams.factor,
-                patience=self.hparams.patience
-                )
-        elif "plateau+warmup" == self.hparams.scheduler:
-            plateau = ReduceLROnPlateau(
-                optimizer,
-                factor=self.hparams.factor,
-                patience=self.hparams.patience
-            )
-            return GradualWarmupScheduler(
+        if 'step' == self.hparams.scheduler:
+            return StepLR(optimizer, step_size=self.hparams.step_size, gamma=self.hparams.step_gamma)
+        elif 'step+warmup' == self.hparams.scheduler:
+            scheduler_steplr = StepLR(optimizer, step_size=self.hparams.step_size, gamma=self.hparams.step_gamma)
+            scheduler_warmup = GradualWarmupScheduler(
                 optimizer,
                 multiplier=self.hparams.warmup_factor,
                 total_epoch=self.hparams.warmup_epochs,
-                after_scheduler=plateau
-                )
+                after_scheduler=scheduler_steplr)
+            return scheduler_warmup
         elif "cosine" == self.hparams.scheduler:
             return CosineAnnealingLR(optimizer, T_max=self.hparams.tmax)
         elif "cosine+warmup" == self.hparams.scheduler:
@@ -234,6 +226,13 @@ class WindModel(pl.LightningModule):
                 optimizer,
                 T_0=self.hparams.tzero, T_mult=self.hparams.tmult
                 )
+        elif "cyclic":
+            scheduler = CyclicLR(
+                optimizer, 
+                base_lr=self.learning_rate, 
+                mode ='exp_range',
+                max_lr=self.learning_rate*self.hparams.max_lr_factor)
+            return scheduler
         else:
             raise NotImplementedError("Not a valid scheduler configuration.")
 
@@ -245,6 +244,7 @@ class WindModel(pl.LightningModule):
         print('Using imagenet init: {}'.format(self.hparams.use_imagenet_init))
         return WindModel.net_mapping(
             self.hparams.model_name,
+            self.hparams.load_n,
             self.hparams.use_imagenet_init
             )
 
