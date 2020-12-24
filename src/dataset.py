@@ -11,11 +11,13 @@ class WindDataset(Dataset):
         folder,
         transform,
         load_n=1,
+        type_agg='simple',
             wind_speed=None):
         self.images = images
         self.folder = folder
         self.wind_speed = wind_speed
         self.transform = transform
+        self.type_agg = type_agg
         self.load_n = load_n
 
     def __len__(self):
@@ -39,7 +41,13 @@ class WindDataset(Dataset):
         # get image id and image order
         images_to_load = self.get_path_load(idx)
         image = [imread(image_path) for image_path in images_to_load]
-        image = np.stack(image, axis=2) / 255
+        image = np.stack(image, axis=0) / 255
+        if self.type_agg == 'minmaxmean':
+            im_max = image.max(axis=0)
+            im_mean = image.mean(axis=0)
+            im_min = image.min(axis=0)
+            image = np.stack([im_max, im_mean, im_min], axis=0)
+        image = image.transpose((1, 2, 0))
         augmented = self.transform(image=image)
         image = augmented['image']
         image = image.transpose(2, 0, 1)  # channels first

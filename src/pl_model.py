@@ -141,6 +141,7 @@ class WindModel(pl.LightningModule):
                     folder=self.hparams.image_folder,
                     wind_speed=wind_speed,
                     load_n=self.hparams.load_n,
+                    type_agg=self.hparams.type_agg,
                     transform=get_training_trasnforms(self.hparams.training_transforms, self.hparams.resize),
 
             )
@@ -163,6 +164,7 @@ class WindModel(pl.LightningModule):
                     folder=self.hparams.image_folder,
                     wind_speed=wind_speed,
                     load_n=self.hparams.load_n,
+                    type_agg=self.hparams.type_agg,
                     transform=get_training_trasnforms('valid', self.hparams.resize),
 
             )
@@ -230,7 +232,7 @@ class WindModel(pl.LightningModule):
             scheduler = CyclicLR(
                 optimizer, 
                 base_lr=self.learning_rate, 
-                mode ='exp_range',
+                mode='exp_range',
                 max_lr=self.learning_rate*self.hparams.max_lr_factor)
             return scheduler
         else:
@@ -242,9 +244,13 @@ class WindModel(pl.LightningModule):
 
     def get_net(self):
         print('Using imagenet init: {}'.format(self.hparams.use_imagenet_init))
+        if self.hparams.type_agg == 'minmaxmean':
+            in_ch = 3
+        elif self.hparams.type_agg == 'simple':
+            in_ch = self.hparams.load_n
         return WindModel.net_mapping(
             self.hparams.model_name,
-            self.hparams.load_n,
+            in_ch,
             self.hparams.use_imagenet_init
             )
 

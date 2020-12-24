@@ -27,7 +27,7 @@ def str2bool(v):
 def main(hparams: Namespace):
     now = datetime.datetime.now().strftime("%d.%H")
     if hparams.experiment_name is None:
-        experiment_name = f"{now}_{hparams.model_name}_{hparams.optimizer}_{hparams.training_transforms}_{hparams.load_n}_fold_{hparams.fold}"
+        experiment_name = f"{now}_{hparams.model_name}_{hparams.optimizer}_{hparams.training_transforms}_{hparams.load_n}_{hparams.type_agg}_fold_{hparams.fold}"
     else:
         experiment_name = f"{now}_{hparams.experiment_name}"
     model = WindModel(hparams=hparams)
@@ -61,7 +61,7 @@ def main(hparams: Namespace):
     trainer.fit(model)
 
     # to make submission without lightning
-    torch.save(model.net.state_dict(), f"logs/{experiment_name}.pth")
+    torch.save(model.net.state_dict(), f"logs/{experiment_name}/{experiment_name}.pth")
 
 
 if __name__ == "__main__":
@@ -74,10 +74,13 @@ if __name__ == "__main__":
     parser.add_argument("--fold", default=0, type=int)
     parser.add_argument("--experiment_name", default=None)
     parser.add_argument("--load_weights", default=None, type=str)
+
     parser.add_argument("--training_transforms", default="light")
     parser.add_argument("--resize", default=256, type=int)
     parser.add_argument("--use_mixup", default=False, type=str2bool)
     parser.add_argument("--mixup_alpha", default=1.0, type=float)
+    parser.add_argument("--type_agg", default='simple', type=str)
+
     parser.add_argument("--profiler", default=False, type=str2bool)
     parser.add_argument("--fast_dev_run", default=False, type=str2bool)
     parser.add_argument("--auto_lr_find", default=False, type=str2bool)
