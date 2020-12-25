@@ -5,6 +5,7 @@ from torch.optim.lr_scheduler import (
     CyclicLR, CosineAnnealingLR, CosineAnnealingWarmRestarts, StepLR)
 from warmup_scheduler import GradualWarmupScheduler
 from torch.utils.data import DataLoader
+import torch_optimizer as optim
 from sklearn.metrics import mean_squared_error
 import numpy as np
 from .models import SimpleClassificationModel
@@ -198,6 +199,41 @@ class WindModel(pl.LightningModule):
                 momentum=self.hparams.sgd_momentum,
                 weight_decay=self.hparams.sgd_wd,
             )
+        elif "adabelief" == self.hparams.optimizer:
+            return optim.AdaBelief(
+                self.net.parameters(),
+                lr=self.learning_rate,
+                weight_decay=self.hparams.weight_decay,
+            )
+        elif "adamp" == self.hparams.optimizer:
+            return optim.AdamP(
+                self.net.parameters(),
+                lr=self.learning_rate,
+                weight_decay=self.hparams.weight_decay,
+            )
+        elif "qhadam" == self.hparams.optimizer:
+            return optim.QHAdam(
+                self.net.parameters(),
+                lr=self.learning_rate,
+                weight_decay=self.hparams.weight_decay,
+            )
+        elif "radam" == self.hparams.optimizer:
+            base_otim = optim.RAdam(
+                self.net.parameters(),
+                lr=self.learning_rate,
+                weight_decay=self.hparams.weight_decay)
+            return optim.Lookahead(
+                base_otim,
+                k=5
+            )
+        elif "ranger" == self.hparams.optimizer:
+            return optim.Ranger(
+                self.net.parameters(),
+                lr=self.learning_rate,
+                alpha=0.5,
+                k=6,
+                weight_decay=self.hparams.weight_decay,
+            )                
         else:
             raise NotImplementedError("Not a valid optimizer configuration.")
 

@@ -1,0 +1,8 @@
+neptune-client
+timm
+albumentations
+pytorch-lightning
+scikit-learn
+scikit-image
+pandas
+torch_optimizer
