@@ -217,7 +217,7 @@ class WindModel(pl.LightningModule):
                 lr=self.learning_rate,
                 weight_decay=self.hparams.weight_decay,
             )
-        elif "radam" == self.hparams.optimizer:
+        elif "radam+lookahead" == self.hparams.optimizer:
             base_otim = optim.RAdam(
                 self.net.parameters(),
                 lr=self.learning_rate,
