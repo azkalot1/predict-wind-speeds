@@ -74,6 +74,7 @@ if __name__ == "__main__":
     parser.add_argument("--fold", default=0, type=int)
     parser.add_argument("--experiment_name", default=None)
     parser.add_argument("--load_weights", default=None, type=str)
+    parser.add_argument("--save_images", default=True, type=str2bool)
 
     parser.add_argument("--training_transforms", default="light")
     parser.add_argument("--resize", default=256, type=int)
