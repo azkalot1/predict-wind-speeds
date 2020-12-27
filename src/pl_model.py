@@ -11,6 +11,7 @@ import numpy as np
 from .models import SimpleClassificationModel
 from .dataset import WindDataset
 from .transforms import get_training_trasnforms, mixup_data, mixup_criterion
+from .utils import RMSELoss
 import pandas as pd
 from os.path import join as join_path
 import matplotlib.pyplot as plt
@@ -66,13 +67,14 @@ class WindModel(pl.LightningModule):
         # log each most wrong image in a batch
         # save images
         img = batch['features'].cpu().detach().numpy()
-        img = (img * 255).astype(int)
+        img = (img * 255).astype(np.uint8)
         val_step = {
             "loss": loss,
             "predictions": y_hat,
             "targets": y_true,
-            "img": img
         }
+        if self.hparams.save_images:
+            val_step['img'] = img
         self.logger.experiment.log_metric('val/batch_loss', loss.item())
         self.logger.experiment.log_metric('val/batch_rmse', batch_rmse)
         return val_step
@@ -98,28 +100,28 @@ class WindModel(pl.LightningModule):
             [x["predictions"] for x in outputs])
         targets = np.concatenate(
             [x["targets"] for x in outputs])
-        img = np.concatenate(
-            [x["img"] for x in outputs])
         predictions = np.squeeze(predictions)
         targets = np.squeeze(targets)
         rmse = mean_squared_error(targets, predictions, squared=False)
-        # find most wrong images
-        prediction_diff = np.abs(predictions - targets)
-        most_wrong = prediction_diff.argsort()[::-1][:self.batch_size]
-        fig, ax = plt.subplots(4, 4, figsize=(16, 16))
-        ax = ax.flatten()
-        for ax_idx in range(min(len(ax), self.batch_size)):
-            ax[ax_idx].imshow(img[most_wrong[ax_idx], -1], cmap='Greys_r')
-            ax[ax_idx].axis('off')
-            ax[ax_idx].set_title(f'predicted: {predictions[most_wrong[ax_idx]]}, gt: {targets[most_wrong[ax_idx]]}')
-        plt.tight_layout()
-
-        self.logger.experiment.log_image(
-                'valid_misclassified_images',
-                fig,
-                description='Most incorrect images'
-        )
-        plt.close()
+        if self.hparams.save_images:
+            img = np.concatenate(
+                [x["img"] for x in outputs])
+            # find most wrong images
+            prediction_diff = np.abs(predictions - targets)
+            most_wrong = prediction_diff.argsort()[::-1][:self.batch_size]
+            fig, ax = plt.subplots(4, 4, figsize=(16, 16))
+            ax = ax.flatten()
+            for ax_idx in range(min(len(ax), self.batch_size)):
+                ax[ax_idx].imshow(img[most_wrong[ax_idx], -1], cmap='Greys_r')
+                ax[ax_idx].axis('off')
+                ax[ax_idx].set_title(f'predicted: {predictions[most_wrong[ax_idx]]}, gt: {targets[most_wrong[ax_idx]]}')
+            plt.tight_layout()
+            self.logger.experiment.log_image(
+                    'valid_misclassified_images',
+                    fig,
+                    description='Most incorrect images'
+            )
+            plt.close()
         # self.logger.experiment.log_metric('val_loss', avg_loss)
         # self.logger.experiment.log_metric('val_rmse', rmse)
         self.log('val_loss', avg_loss)
@@ -277,6 +279,8 @@ class WindModel(pl.LightningModule):
     def get_criterion(self):
         if "mse" == self.hparams.criterion:
             return nn.MSELoss()
+        elif 'rmse' == self.hparams.criterion:
+            return nn.RMSELoss()
 
     def get_net(self):
         print('Using imagenet init: {}'.format(self.hparams.use_imagenet_init))
